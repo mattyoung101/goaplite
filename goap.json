@@ -1,0 +1,90 @@
+{
+  "actions": [
+    {
+      "name": "FindAxe",
+      "cost": 1,
+      "preConditions": {},
+      "postConditions": {
+        "HaveAxe": true,
+        "IsCool": true
+      }
+    },
+    {
+      "name": "CollectLog",
+      "cost": 1,
+      "preConditions": {
+        "HaveAxe": true
+      },
+      "postConditions": {
+        "HaveWood": true
+      }
+    },
+    {
+      "name": "ChopLog",
+      "cost": 2,
+      "preConditions": {
+        "HaveWood": true
+      },
+      "postConditions": {
+        "HaveTimber": true
+      }
+    },
+
+    {
+      "name": "CollectStone",
+      "cost": 2,
+      "preConditions": {},
+      "postConditions": {
+        "HaveStone": true
+      }
+    },
+    {
+      "name": "MakeConcrete",
+      "cost": 3,
+      "preConditions": {
+        "HaveStone": true
+      },
+      "postConditions": {
+        "HaveConcrete": true
+      }
+    },
+
+    {
+      "name": "BuildFoundation",
+      "cost": 5,
+      "preConditions": {
+        "HaveConcrete": true
+      },
+      "postConditions": {
+        "BuiltFoundation": true
+      }
+    },
+    {
+      "name": "BuildWalls",
+      "cost": 4,
+      "preConditions": {
+        "HaveTimber": true,
+        "BuiltFoundation": true
+      },
+      "postConditions": {
+        "BuiltWalls": true
+      }
+    },
+    {
+      "name": "BuildRoof",
+      "cost": 5,
+      "preConditions": {
+        "HaveTimer": true,
+        "BuiltWalls": true,
+        "BuiltFoundation": true
+      },
+      "postConditions": {
+        "BuiltHouse": true
+      }
+    }
+  ],
+
+  "goalState": {
+    "BuiltHouse": true
+  }
+}

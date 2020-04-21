@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+message GOAPAction {
+    string name = 1;
+    int32 cost = 2;
+    map<string, bool> preConditions = 3;
+    map<string, bool> postConditions = 4;
+}
+
+message GOAPConfig {
+    repeated GOAPAction actions = 1;
+    map<string, bool> goalState = 2;
+}
