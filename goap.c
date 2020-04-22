@@ -67,7 +67,7 @@ static goap_actionlist_t find_neighbours(goap_actionlist_t actions, goap_worldst
 DA_TYPEDEF(goap_action_t*, actionlistp_t)
 
 /** used for internal debugging only */
-static void dump_set(map_void_t set){
+static void dump_set(map_bool_t set){
     printf("dump_set() %d entries:\n", set.base.nnodes);
     map_iter_t iter = map_iter();
     const char *key = NULL;
@@ -90,15 +90,15 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
 
     // here we basically make the equivalent of a set using a hash table, which is a little bit tricky but should be fine
     goap_actionlist_t vertexSet = {0};
-    map_void_t vertexChecker = {0};
+    map_bool_t vertexChecker = {0};
 
     // Dijkstra's setup: reset all nodes, add whichever ones we can access right now to our vertex queue
     for (goap_action_t *it = da_begin(allActions), *end = da_end(allActions); it != end; ++it){
         it->_dist = UINT32_MAX;
         it->_prev = NULL;
         if (can_perform_action(*it, currentWorld)){
-            map_set(&vertexChecker, it->name, NULL);
             da_add(vertexSet, *it);
+            map_set(&vertexChecker, it->name, true);
         }
     }
 
@@ -136,8 +136,6 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
             }
         }
         printf("located smallest item %s at index %zu with distance %u\n", u.name, smallestIdx, smallestDist);
-        // remove element from queue, we can already use "u" to reference it
-        da_delete(vertexSet, smallestIdx);
 
         // let's pretend we executed the action and see what our world looks like now
         printf("Going to execute action: %s\n", u.name);
@@ -168,8 +166,18 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
             if (alt < v->_dist){
                 v->_dist = alt;
                 v->_prev = &u; // TODO THIS IS BUGGED BECAUSE U IS STACK ALLOCATED!! FIX MEEEEEEE
+                // we've found a new neighbour so we should probably add it to the queue TODO if it's not already in there
+                if (map_get(&vertexChecker, v->name) == NULL){
+                    printf("Neighbour is NOT in queue, adding it");
+                    da_add(vertexSet, *v);
+                    map_set(&vertexChecker, v->name, true);
+                }
             }
         }
+
+        // remove element from queue, we can already use "u" to reference it
+        da_delete(vertexSet, smallestIdx);
+        map_remove(&vertexChecker, u.name);
 
         da_free(neighbours);
     }
