@@ -1,0 +1,33 @@
+{
+  "actions": [
+    {
+      "name": "Action1",
+      "cost": 1,
+      "preConditions": {},
+      "postConditions": {
+        "CompletedAction1": true
+      }
+    },
+    {
+      "name": "Action2",
+      "cost": 1,
+      "preConditions": {
+        "CompletedAction1": true
+      },
+      "postConditions": {
+        "CompletedAction2": true
+      }
+    },
+    {
+      "name": "Action3",
+      "cost": 1,
+      "preConditions": {
+        "CompletedAction1": true,
+        "CompletedAction2": true
+      },
+      "postConditions": {
+        "BuiltHouse": true
+      }
+    }
+  ]
+}

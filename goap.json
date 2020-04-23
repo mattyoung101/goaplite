@@ -82,9 +82,5 @@
         "BuiltHouse": true
       }
     }
-  ],
-
-  "goalState": {
-    "BuiltHouse": true
-  }
+  ]
 }

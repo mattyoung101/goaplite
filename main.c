@@ -42,7 +42,7 @@ static int random_comparator(const void *a, const void *b){
 int main() {
     log_set_level(LOG_TRACE);
     long jsonSize = 0;
-    char *jsonStr = utils_load_file("../goap.json", &jsonSize);
+    char *jsonStr = utils_load_file("../goap_simple.json", &jsonSize);
     srand(time(NULL));
 
     // load actions from config

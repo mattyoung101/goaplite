@@ -3,7 +3,6 @@
 #include <stdbool.h>
 #include "DG_dynarr.h"
 #include "map.h"
-#include "avl.h"
 
 typedef map_t(bool) map_bool_t;
 /** Used to define the current state of a GOAP world */
@@ -18,7 +17,6 @@ typedef enum {
     GOAP_STATUS_FAILED
 } goap_action_status_t;
 
-typedef struct goap_action_t goap_action_t;
 typedef struct goap_action_t {
     char *name;
     uint32_t cost;
@@ -26,24 +24,24 @@ typedef struct goap_action_t {
     map_bool_t preConditions;
     /** a hashmap of changes to the world state that will be set once this action completes */
     map_bool_t postConditions;
-    /** code that is executed while the action is running, returns the status (running, done or failed) */
+    /** code that is executed while the action is running, returns the status */
     goap_action_status_t (*actionCode)(void);
 
     // internal used for pathfinding only
-    bool _discovered;
-    struct goap_action_t *_prev;
-    uint32_t _dist;
+    struct goap_action_t *_parent;
+    uint32_t _cachedCost;
 } goap_action_t;
 
 /** A linked list of goap_action_t items */
 DA_TYPEDEF(goap_action_t, goap_actionlist_t)
 
 /**
- * Calculates the optimal plan from the current state to the goal state using a pathfinding algorithm, currently A*.
+ * Calculates the optimal route of actions to take the agent from the current world state to the goal state.
+ * Currently uses Dijkstra's algorithm for pathfinding (in future, A*).
  * If no plan could be created, prints an error and returns an empty list.
  *
  * The user is responsible for allocating and freeing all parameters from this function, so they can also handle
- * threading/multi-core synchronisation if necessary
+ * threading/multi-core synchronisation if necessary.
  * @param current the current GOAP state allocated by the user
  * @param goal the goal world state allocated by the user
  * @param allActions the list of actions available to the planner, try goap_parse_* to generate this
@@ -54,11 +52,9 @@ DA_TYPEDEF(goap_action_t, goap_actionlist_t)
 goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldstate_t goal, goap_actionlist_t allActions);
 
 /**
- * Generates a goap_actionlist_t by deserialising a JSON document.
+ * Generates a goap_actionlist_t by deserialising a JSON document. Checks for malformed documents and related errors.
  *
  * NOTE: You must call goap_actionlist_free() to delete this list and its contents properly.
- *
- * NOTE: currently the goal state is not parsed, you must create this manually
  * @param str the contents of the JSON document
  */
 goap_actionlist_t goap_parse_json(char *str, size_t length);

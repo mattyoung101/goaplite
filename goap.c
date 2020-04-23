@@ -3,15 +3,8 @@
 #include "cJSON.h"
 #include "log/log.h"
 
-/**
- * This heuristic function should be admisable because it never overestimates the cost of reaching the goal
- * Based on the cppGOAP heuristic (not the GPGOAP one)
- */
-static void heuristic(goap_worldstate_t a, goap_worldstate_t b){
-    // difference between two states hashmaps
-    map_iter_t aIter = map_iter(a);
-    map_iter_t bIter = map_iter(b);
-}
+#define ITERATE_ARRAY(array) goap_action_t *it = da_begin(array), *end = da_end(array); it != end; ++it
+#define ITERATE_ARRAYPTR(array) goap_action_t **it = da_begin(array), **end = da_end(array); it != end; ++it
 
 /** returns true if the given action can be executed in the current world state */
 static bool can_perform_action(goap_action_t action, goap_worldstate_t world){
@@ -33,54 +26,48 @@ static goap_worldstate_t execute_action(goap_action_t action, goap_worldstate_t 
     return copy;
 }
 
-/** returns the list of actions that can be executed after executing the given action. assumes the action can be executed. */
-static goap_actionlist_t execute_find_neighbours(goap_action_t action, goap_actionlist_t actions, goap_worldstate_t world){
-    goap_actionlist_t neighbours = {0};
-    goap_worldstate_t newWorld = execute_action(action, world);
+/** checks if any of the parents of "potential" are equal to "parent" */
+static bool contains_parent(goap_action_t potential, goap_action_t parent){
+    if (potential._parent == NULL) return false; // has no parents
 
-    // now iterate over all actions and see which ones we can apply in our new world after performing the action
-    for (goap_action_t *it = da_begin(actions), *end = da_end(actions); it != end; ++it){
-        if (can_perform_action(*it, newWorld)){
-            da_add(neighbours, *it);
+    goap_action_t *it = potential._parent;
+    while (it != NULL){
+        // check if they're equal by names
+        if (strcmp(it->name, parent.name) == 0){
+            return true;
         }
+        it = it->_parent;
     }
-
-    map_deinit(&newWorld);
-    return neighbours;
+    return false;
 }
 
-/** returns the list of actions that can be executed given the current world state */
+/** returns the list of actions that can be executed from this action given the current world state */
 static goap_actionlist_t find_neighbours(goap_actionlist_t actions, goap_worldstate_t world, goap_action_t currentAction){
     goap_actionlist_t neighbours = {0};
-
-    // now iterate over all actions and see which ones we can apply in our new world after performing the action
-    for (goap_action_t *it = da_begin(actions), *end = da_end(actions); it != end; ++it){
-        if (strcmp(it->name, currentAction.name) != 0 && can_perform_action(*it, world)){
+    for (ITERATE_ARRAY(actions)){
+        // exclude actions which are ourselves, that we cannot perform and that contain a parent who is currentActions
+        if (can_perform_action(*it, world) && strcmp(it->name, currentAction.name) != 0 && !contains_parent(*it, currentAction)){
             da_add(neighbours, *it);
         }
     }
-
     return neighbours;
 }
 
 /** list of goap_action_t pointers */
-DA_TYPEDEF(goap_action_t*, actionlistp_t)
+DA_TYPEDEF(goap_action_t*, actionlistptr_t)
+/** list of action lists */
+DA_TYPEDEF(goap_actionlist_t, actionlist2_t)
 
-/** used for internal debugging only */
-static void dump_set(map_bool_t set){
-    printf("dump_set() %d entries:\n", set.base.nnodes);
-    map_iter_t iter = map_iter();
-    const char *key = NULL;
-    while ((key = map_next(&set, &iter))) {
-        printf("\t- %s\n", key);
-    }
-}
+/** a node used for graph searching */
+typedef struct {
+    goap_actionlist_t parents;
+    goap_worldstate_t currentState;
+    goap_action_t currentAction;
+} node_t;
 
 goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldstate_t goal, goap_actionlist_t allActions){
     log_trace("GOAP planner working with %zu actions", da_count(allActions));
     goap_actionlist_t plan = {0};
-
-    // FIXME is it a good idea to iterate from start to beginning?
 
     // check if we're already at the goal for some reason
     if (goap_worldstate_compare(currentWorld, goal)){
@@ -88,102 +75,79 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
         return plan;
     }
 
-    // here we basically make the equivalent of a set using a hash table, which is a little bit tricky but should be fine
-    goap_actionlist_t vertexSet = {0};
-    map_bool_t vertexChecker = {0};
+    // so here's my current thinking, the problem with Dijkstra is either my implemntation's wrong, or it needs the
+    // entire graph pre-planned in memory. although probably my code is just bugged, if it needs the whole graph in memory
+    // then we have to traverse it with a BFS/DFS. and if we're doing that, well, we may as well record all paths that
+    // got us to the finish and find the one with the least cost (or shortest length?)
+    // however, I think the real problem with my Dijkstra implementation is that each node MUST NOT visit any of its parents
+    // although we restricted a node from visiting itself, it could visit its parents which caused infinite loops
+    // idk if that's the real fix though, so in the mean time, I'm going to use a DFS
+    goap_actionlist_t stack = {0};
+    actionlistptr_t garbage = {0};
 
-    // Dijkstra's setup: reset all nodes, add whichever ones we can access right now to our vertex queue
+    // reset all nodes, and populate list of actions we can perform given the current world state
+    goap_action_t firstAction = {0};
     for (goap_action_t *it = da_begin(allActions), *end = da_end(allActions); it != end; ++it){
-        it->_dist = UINT32_MAX;
-        it->_prev = NULL;
+        it->_parent = NULL;
         if (can_perform_action(*it, currentWorld)){
-            da_add(vertexSet, *it);
-            map_set(&vertexChecker, it->name, true);
+            firstAction = *it;
+            //da_add(stack, *it);
         }
     }
+    da_add(stack, firstAction);
 
-    // find list of actions we can perform in the current world state
     puts("\nInitial available actions:");
-    dump_set(vertexChecker);
-    if (da_count(vertexSet) == 0){
+    goap_actionlist_dump(stack);
+    if (da_count(stack) == 0){
         log_error("No actions can be performed in the current world state!");
-        da_free(vertexSet);
-        map_deinit(&vertexChecker);
+        da_free(stack);
         return plan;
     }
-    // set our source node to 0 distance
-    da_getptr(vertexSet, 0)->_dist = 0;
-    printf("Source is: %s\n", da_get(vertexSet, 0).name);
-    char *sourceName = da_get(vertexSet, 0).name;
 
-    // use Dijkstra's algorithm to find path to goal state
-    // based on pseudocode: https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm#Pseudocode
-    // TODO don't we need to recursively call Dijkstra's on each first available action?
-    // since they could lead to different outcomes, one of which may not be possible to have a solution to the goal!
-    // we're going to ignore this for now, just so I can get a working prototype out the door, we'll fix later
-    while (da_count(vertexSet) > 0){
-        // locate smallest element in queue
-        goap_action_t u = {0};
-        size_t smallestIdx = 0;
-        uint32_t smallestDist = UINT32_MAX;
+    // TODO need to keep track of world state as we go otherwise we can't handle more than one precondition
+    // TODO possibly trade pointer to parent for a list of parents (might cause less memory bugs)
 
-        for (size_t i = 0; i < da_count(vertexSet); i++){
-            goap_action_t action = da_get(vertexSet, i);
-            if (action._dist <= smallestDist){
-                u = action;
-                smallestDist = action._dist;
-                smallestIdx = i;
-            }
-        }
-        printf("located smallest item %s at index %zu with distance %u\n", u.name, smallestIdx, smallestDist);
+    while (da_count(stack) > 0){
+        printf("\nStack has %zu elements\n", da_count(stack));
+
+        // pop the last element off the stack, we can't use da_pop() because we need a pointer to it
+        goap_action_t *node = da_getptr(stack, da_count(stack) - 1);
+        da_deletefast(stack, da_count(stack) - 1);
+        printf("Visiting node: %s\n", node->name);
 
         // let's pretend we executed the action and see what our world looks like now
-        printf("Going to execute action: %s\n", u.name);
-        goap_worldstate_t newWorld = execute_action(u, currentWorld);
-        printf("World after executing %s:\n", u.name);
+        goap_worldstate_t newWorld = execute_action(*node, currentWorld);
+        printf("World after executing %s:\n", node->name);
         goap_worldstate_dump(newWorld);
 
-        // check if we've reached the goal and return path
+        // check if goal and reconstruct path, calculate score and add to list of paths
         if (goap_worldstate_compare(newWorld, goal)){
-            if (u._prev != NULL || strcmp(u.name, sourceName) == 0){
-                printf("Hooray! We reached the goal! Reconstrucing path...\n");
-                printf("current aciton is: %s\n", u.name);
-                printf("i bet this will crash, previous node name is: %s\n", u._prev->name);
-                break;
-            } else {
-                printf("ignoring invalid solution to path");
-            }
+            printf("Reached goal!\n");
+            // TODO reconstruct path and cache score
+            break;
         }
 
-        // visit all neighbours that we can execute given our last world state
-        goap_actionlist_t neighbours = find_neighbours(allActions, newWorld, u);
-        printf("We have %zu neighbours\n", da_count(neighbours));
-        for (goap_action_t *v = da_begin(neighbours), *end = da_end(neighbours); v != end; ++v){
-            printf("Visiting neighbour of %s called %s\n", u.name, v->name);
-            // note: if it's a neighbour, it means we can DIRECTLY transition into this node from our current node
-            // so therefore we can assume we can reach it, and length(u, v) should just be v.cost??
-            uint32_t alt = u._dist + v->cost;
-            if (alt < v->_dist){
-                v->_dist = alt;
-                v->_prev = &u; // TODO THIS IS BUGGED BECAUSE U IS STACK ALLOCATED!! FIX MEEEEEEE
-                // we've found a new neighbour so we should probably add it to the queue TODO if it's not already in there
-                if (map_get(&vertexChecker, v->name) == NULL){
-                    printf("Neighbour is NOT in queue, adding it");
-                    da_add(vertexSet, *v);
-                    map_set(&vertexChecker, v->name, true);
-                }
-            }
+        // clone this action onto the heap (otherwise things break in very bad ways)
+        goap_action_t *clone = malloc(sizeof(goap_action_t));
+        memcpy(clone, node, sizeof(goap_action_t));
+
+        // if not goal: explore children, set parents and add to queue
+        goap_actionlist_t neighbours = find_neighbours(allActions, newWorld, *node);
+        for (ITERATE_ARRAY(neighbours)){
+            printf("Visiting neighbour of %s: %s\n", node->name, it->name);
+            it->_parent = clone;
+            da_add(stack, *it);
         }
-
-        // remove element from queue, we can already use "u" to reference it
-        da_delete(vertexSet, smallestIdx);
-        map_remove(&vertexChecker, u.name);
-
-        da_free(neighbours);
     }
 
-    da_free(vertexSet);
-    map_deinit(&vertexChecker);
+    // free any extraneous actions we allocated during the search
+    for (ITERATE_ARRAYPTR(garbage)){
+        printf("Freeing allocated node: %s\n", (*it)->name);
+        free(*it);
+    }
+
+    da_free(garbage);
+    da_free(stack);
     return plan;
 }
 
@@ -273,14 +237,14 @@ void goap_actionlist_free(goap_actionlist_t *list){
 }
 
 void goap_actionlist_dump(goap_actionlist_t list){
-    printf("goap_actionlist_dump() %zu entries:\n", da_count(list));
+    //printf("goap_actionlist_dump() %zu entries:\n", da_count(list));
     for (size_t i = 0; i < da_count(list); i++){
         printf("\t%zu. %s\n", i + 1, da_get(list, i).name);
     }
 }
 
 void goap_worldstate_dump(goap_worldstate_t world){
-    printf("goap_worldstate_dump() %d entries:\n", world.base.nnodes);
+    //printf("goap_worldstate_dump() %d entries:\n", world.base.nnodes);
     map_iter_t iter = map_iter();
     const char *key = NULL;
     while ((key = map_next(&world, &iter))) {
