@@ -26,7 +26,8 @@
         "CompletedAction2": true
       },
       "postConditions": {
-        "BuiltHouse": true
+        "BuiltHouse": true,
+        "CompletedAction3": true
       }
     }
   ]

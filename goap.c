@@ -6,64 +6,77 @@
 #define ITERATE_ARRAY(array) goap_action_t *it = da_begin(array), *end = da_end(array); it != end; ++it
 #define ITERATE_ARRAYPTR(array) goap_action_t **it = da_begin(array), **end = da_end(array); it != end; ++it
 
+/** a node used for graph searching */
+typedef struct {
+    goap_actionlist_t parents;
+    /** current world state at this node (sum of all parents world states, basically) */
+    goap_worldstate_t worldState;
+    /** total cost of this node so far */
+    uint32_t cost;
+} node_t;
+DA_TYPEDEF(node_t, nodelist_t)
+DA_TYPEDEF(goap_action_t*, actionlistptr_t)
+/** list of action lists */
+DA_TYPEDEF(goap_actionlist_t, actionlist2_t)
+
 /** returns true if the given action can be executed in the current world state */
 static bool can_perform_action(goap_action_t action, goap_worldstate_t world){
     return goap_worldstate_compare(world, action.preConditions);
 }
 
-/** returns the result of executing the action on the current world. assumes the action can be executed. map_deinit() the result. */
-static goap_worldstate_t execute_action(goap_action_t action, goap_worldstate_t world){
-    goap_worldstate_t copy = world;
-    map_iter_t iter = map_iter(&action.postConditions);
+/** updates the specified world state by applying the post conditions of the specified action. works "in place" on world */
+static void execute_action(goap_action_t action, goap_worldstate_t *world){
+    map_iter_t iter = map_iter();
     const char *key = NULL;
 
     // let's pretend we executed the action, so apply our post-conditions to the backup world
     while ((key = map_next(&action.postConditions, &iter))){
         bool *postResult = map_get(&action.postConditions, key);
-        map_set(&copy, key, *postResult);
+        map_set(world, key, *postResult);
     }
-
-    return copy;
 }
 
-/** checks if any of the parents of "potential" are equal to "parent" */
-static bool contains_parent(goap_action_t potential, goap_action_t parent){
-    if (potential._parent == NULL) return false; // has no parents
-
-    goap_action_t *it = potential._parent;
-    while (it != NULL){
-        // check if they're equal by names
-        if (strcmp(it->name, parent.name) == 0){
+/** checks if the given action list contains an entry with the name of "name" */
+static bool contains_name(char *name, goap_actionlist_t history){
+    for (ITERATE_ARRAY(history)){
+        if (strcmp(it->name, name) == 0){
             return true;
         }
-        it = it->_parent;
     }
     return false;
 }
 
-/** returns the list of actions that can be executed from this action given the current world state */
-static goap_actionlist_t find_neighbours(goap_actionlist_t actions, goap_worldstate_t world, goap_action_t currentAction){
+/** returns the list of actions that can be executed from this node given it's parenets and current state */
+static goap_actionlist_t find_executable_actions(node_t node, goap_actionlist_t actions){
     goap_actionlist_t neighbours = {0};
     for (ITERATE_ARRAY(actions)){
-        // exclude actions which are ourselves, that we cannot perform and that contain a parent who is currentActions
-        if (can_perform_action(*it, world) && strcmp(it->name, currentAction.name) != 0 && !contains_parent(*it, currentAction)){
+        // exclude actions that we cannot execute or that are our parents
+        if (can_perform_action(*it, node.worldState) && !contains_name(it->name, node.parents)){
             da_add(neighbours, *it);
         }
     }
     return neighbours;
 }
 
-/** list of goap_action_t pointers */
-DA_TYPEDEF(goap_action_t*, actionlistptr_t)
-/** list of action lists */
-DA_TYPEDEF(goap_actionlist_t, actionlist2_t)
+/** clones the specified map to a new map */
+static goap_worldstate_t map_clone(goap_worldstate_t oldMap){
+    goap_worldstate_t newMap = {0};
+    map_iter_t iter = map_iter();
+    const char *key = NULL;
+    while ((key = map_next(&oldMap, &iter))){
+        map_set(&newMap, key, map_get(&oldMap, key));
+    }
+    return newMap;
+}
 
-/** a node used for graph searching */
-typedef struct {
-    goap_actionlist_t parents;
-    goap_worldstate_t currentState;
-    goap_action_t currentAction;
-} node_t;
+/** clones the specified list to a new list */
+static goap_actionlist_t list_clone(goap_actionlist_t oldList){
+    goap_actionlist_t newList = {0};
+    for (ITERATE_ARRAY(oldList)){
+        da_add(newList, *it);
+    }
+    return newList;
+}
 
 goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldstate_t goal, goap_actionlist_t allActions){
     log_trace("GOAP planner working with %zu actions", da_count(allActions));
@@ -75,70 +88,68 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
         return plan;
     }
 
-    // so here's my current thinking, the problem with Dijkstra is either my implemntation's wrong, or it needs the
-    // entire graph pre-planned in memory. although probably my code is just bugged, if it needs the whole graph in memory
-    // then we have to traverse it with a BFS/DFS. and if we're doing that, well, we may as well record all paths that
-    // got us to the finish and find the one with the least cost (or shortest length?)
-    // however, I think the real problem with my Dijkstra implementation is that each node MUST NOT visit any of its parents
-    // although we restricted a node from visiting itself, it could visit its parents which caused infinite loops
-    // idk if that's the real fix though, so in the mean time, I'm going to use a DFS
-    goap_actionlist_t stack = {0};
+    // use a depth first search
+    nodelist_t stack = {0};
     actionlistptr_t garbage = {0};
 
-    // reset all nodes, and populate list of actions we can perform given the current world state
-    goap_action_t firstAction = {0};
-    for (goap_action_t *it = da_begin(allActions), *end = da_end(allActions); it != end; ++it){
-        it->_parent = NULL;
-        if (can_perform_action(*it, currentWorld)){
-            firstAction = *it;
-            //da_add(stack, *it);
-        }
-    }
-    da_add(stack, firstAction);
-
-    puts("\nInitial available actions:");
-    goap_actionlist_dump(stack);
-    if (da_count(stack) == 0){
-        log_error("No actions can be performed in the current world state!");
-        da_free(stack);
-        return plan;
-    }
-
-    // TODO need to keep track of world state as we go otherwise we can't handle more than one precondition
-    // TODO possibly trade pointer to parent for a list of parents (might cause less memory bugs)
+    // add our current state to the stack
+    node_t initial = {0};
+    initial.worldState = currentWorld;
+    da_add(stack, initial);
 
     while (da_count(stack) > 0){
         printf("\nStack has %zu elements\n", da_count(stack));
+        // pop the last element off the stack, we can copy it since we're throwing it away
+        node_t node = da_pop(stack);
 
-        // pop the last element off the stack, we can't use da_pop() because we need a pointer to it
-        goap_action_t *node = da_getptr(stack, da_count(stack) - 1);
-        da_deletefast(stack, da_count(stack) - 1);
-        printf("Visiting node: %s\n", node->name);
-
-        // let's pretend we executed the action and see what our world looks like now
-        goap_worldstate_t newWorld = execute_action(*node, currentWorld);
-        printf("World after executing %s:\n", node->name);
-        goap_worldstate_dump(newWorld);
-
-        // check if goal and reconstruct path, calculate score and add to list of paths
-        if (goap_worldstate_compare(newWorld, goal)){
-            printf("Reached goal!\n");
-            // TODO reconstruct path and cache score
-            break;
+        // (just debug stuff)
+        printf("Visiting node with %zu parents\n", da_count(node.parents));
+        if (da_count(node.parents) > 0){
+            printf("Parents are:\n");
+            goap_actionlist_dump(node.parents);
         }
+        printf("World state of this node is:\n");
+        goap_worldstate_dump(node.worldState);
 
-        // clone this action onto the heap (otherwise things break in very bad ways)
-        goap_action_t *clone = malloc(sizeof(goap_action_t));
-        memcpy(clone, node, sizeof(goap_action_t));
+       // let's see what actions we can execute in the current world state of the node
+       goap_actionlist_t neighbours = find_executable_actions(node, allActions);
+       printf("List of actions we can perform from this state:\n");
+       goap_actionlist_dump(neighbours);
 
-        // if not goal: explore children, set parents and add to queue
-        goap_actionlist_t neighbours = find_neighbours(allActions, newWorld, *node);
-        for (ITERATE_ARRAY(neighbours)){
-            printf("Visiting neighbour of %s: %s\n", node->name, it->name);
-            it->_parent = clone;
-            da_add(stack, *it);
-        }
+       // iterate through each action and put a new node on the search list
+       for (ITERATE_ARRAY(neighbours)){
+           // let's pretend we executed the action and see what our new world state looks like
+           // we first have to duplicate the node so we don't cause heap use after frees (somehow?)
+           goap_worldstate_t newWorld = map_clone(node.worldState);
+           execute_action(*it, &newWorld);
+           printf("After performing %s, new world state is:\n", it->name);
+           goap_worldstate_dump(newWorld);
+
+           // check if goal state reached
+           if (goap_worldstate_compare(newWorld, goal)){
+               // TODO trace back, calc cost and add to list of possible paths
+               printf("Reached goal!\n");
+           } else {
+               // clone the list as well, for the same reasons as the map
+               goap_actionlist_t parentsClone = list_clone(node.parents);
+               da_add(parentsClone, *it);
+
+               // make a new node with the updated parents and new world state
+               node_t newNode ={0};
+               newNode.parents = parentsClone;
+               newNode.worldState = newWorld;
+               da_add(stack, newNode);
+               printf("Added new node with %zu parents to stack\n", da_count(newNode.parents));
+           }
+       }
+
+       // free the node's contents now that we no longer need it
+       map_deinit(&node.worldState);
+       da_free(node.parents);
+       da_free(neighbours);
     }
+
+    // TODO select best path with least cost
 
     // free any extraneous actions we allocated during the search
     for (ITERATE_ARRAYPTR(garbage)){
@@ -238,6 +249,11 @@ void goap_actionlist_free(goap_actionlist_t *list){
 
 void goap_actionlist_dump(goap_actionlist_t list){
     //printf("goap_actionlist_dump() %zu entries:\n", da_count(list));
+    if (da_count(list) == 0){
+        printf("\t(empty action list)\n");
+        return;
+    }
+
     for (size_t i = 0; i < da_count(list); i++){
         printf("\t%zu. %s\n", i + 1, da_get(list, i).name);
     }
@@ -247,8 +263,14 @@ void goap_worldstate_dump(goap_worldstate_t world){
     //printf("goap_worldstate_dump() %d entries:\n", world.base.nnodes);
     map_iter_t iter = map_iter();
     const char *key = NULL;
+    uint32_t count = 0;
     while ((key = map_next(&world, &iter))) {
         printf("\t%s: %s\n", key, *map_get(&world, key) ? "true" : "false");
+        count++;
+    }
+
+    if (count == 0){
+        printf("\t(empty world state)\n");
     }
 }
 

@@ -74,7 +74,7 @@
       "name": "BuildRoof",
       "cost": 5,
       "preConditions": {
-        "HaveTimer": true,
+        "HaveTimber": true,
         "BuiltWalls": true,
         "BuiltFoundation": true
       },
