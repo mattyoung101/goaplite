@@ -26,10 +26,6 @@ typedef struct goap_action_t {
     map_bool_t postConditions;
     /** code that is executed while the action is running, returns the status */
     goap_action_status_t (*actionCode)(void);
-
-    // internal used for pathfinding only
-    struct goap_action_t *_parent;
-    uint32_t _cachedCost;
 } goap_action_t;
 
 /** A linked list of goap_action_t items */
@@ -64,8 +60,6 @@ goap_actionlist_t goap_parse_protobuf(void);
 void goap_actionlist_free(goap_actionlist_t *list);
 /** Dumps a goap_actionlist_t to the console */
 void goap_actionlist_dump(goap_actionlist_t list);
-/** Compares two world states, returning true if and only if they are exactly identical (including same number of keys) */
-bool goap_worldstate_compare_strict(goap_worldstate_t a, goap_worldstate_t b);
 /** Compares two world states and returns true if they're functionally equivalent, ignoring extraneous keys */
 bool goap_worldstate_compare(goap_worldstate_t currentState, goap_worldstate_t goal);
 /** Dumps a goap_worldstate_t to the console */
