@@ -35,7 +35,8 @@
       "cost": 2,
       "preConditions": {},
       "postConditions": {
-        "HaveStone": true
+        "HaveStone": true,
+        "IsCool": false
       }
     },
     {

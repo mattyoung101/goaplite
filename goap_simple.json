@@ -29,6 +29,17 @@
         "BuiltHouse": true,
         "CompletedAction3": true
       }
+    },
+    {
+      "name": "UselessAction",
+      "cost": 5,
+      "preConditions": {
+        "CompletedAction1": true
+      },
+      "postConditions": {
+        "CompletedUselessAction": true,
+        "IsSmart": false
+      }
     }
   ]
 }
