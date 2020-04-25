@@ -1,0 +1,28 @@
+// this is a comment
+# this is also a comment
+name: FindBall
+cost: 1
+preConditions: 
+postConditions: SeeBall && __SPEC(BallInFront || BallBehind)
+
+name: Orbit
+cost: 3
+preConditions: BallBehind
+postConditions: HaveBall
+
+name: PickUpBall
+cost: 2
+preConditions: BallInFront
+postConditions: HaveBall && DribblingBall
+
+name: FlickShot
+cost: 4
+preConditions: ValidFlickPosition && DribblingBall
+postConditions: CanScore
+
+
+goal: CanScore || GoalCompleted
+
+Precedence 1: Logical NOT (Right to left)
+Precedence 2: Logical AND (Left to right)
+Precedence 3: Logical OR (Left to right)

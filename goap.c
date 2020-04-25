@@ -85,7 +85,14 @@ static int cost_comparator(const void *a, const void *b){
     node_t *nodeB = (node_t*) b;
 
     if (nodeA->cost == nodeB->cost){
-        return 0;
+        // if tie, choose path length
+        if (da_count(nodeA->parents) == da_count(nodeB->parents)){
+            return 0;
+        } else if (da_count(nodeA->parents) > da_count(nodeB->parents)){
+            return 1;
+        } else {
+            return -1;
+        }
     } else if (nodeA->cost > nodeB->cost){
         return 1;
     } else {
@@ -109,7 +116,7 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
 
     // add our current state to the stack
     node_t initial = {0};
-    initial.worldState = currentWorld;
+    initial.worldState = map_clone(currentWorld);
     da_add(stack, initial);
     uint32_t count = 0;
 
@@ -167,6 +174,14 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
         da_free(neighbours);
     }
     printf("Search is complete. Visited %u nodes, found %zu solutions\n\n", count, da_count(solutions));
+
+    // check for no solutions
+    if (da_count(solutions) == 0){
+        log_warn("No solutions found in search!");
+        da_free(solutions);
+        da_free(stack);
+        return plan;
+    }
 
     // sort solutions by least cost
     da_sort(solutions, cost_comparator);
@@ -254,7 +269,6 @@ goap_actionlist_t goap_parse_json(char *str, size_t length) {
             map_set(&parsedAction.postConditions, postItem->string, postItem->valueint);
         }
 
-        // TODO we'd also need to set the function pointers based on name here or later somewhere else
         da_add(out, parsedAction);
     }
 
@@ -309,6 +323,9 @@ bool goap_worldstate_compare(goap_worldstate_t currentState, goap_worldstate_t g
         bool *curVal = map_get(&currentState, key);
         bool *targetVal = map_get(&goal, key);
 
+        // interesting to note: STRIPS planners like GOAP make the closed world assumption, which we see on this line.
+        // if curVal is NULL, it means that the key from the goal state was not found in the current state.
+        // we assume this means it's false, but in fact it's just "unknown" - it could, in fact, be true
         if (curVal == NULL || targetVal == NULL || *curVal != *targetVal) {
             return false;
         }

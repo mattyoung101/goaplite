@@ -9,6 +9,7 @@
 #include "log/log.h"
 
 static goap_action_status_t uselessActionFunction(){
+    printf("Executing useless action function\n");
     return GOAP_STATUS_SUCCESS;
 }
 
@@ -42,28 +43,44 @@ static int random_comparator(const void *a, const void *b){
 int main() {
     log_set_level(LOG_TRACE);
     long jsonSize = 0;
-    char *jsonStr = utils_load_file("../goap.json", &jsonSize);
+    char *jsonStr = utils_load_file("../goap2.json", &jsonSize);
     srand(time(NULL));
 
     // load actions from config
     goap_actionlist_t parsedActions = goap_parse_json(jsonStr, jsonSize);
+    if (da_count(parsedActions) == 0){
+        log_error("Parse error!");
+        return EXIT_FAILURE;
+    }
+
+    // assign action functions, in the real robot this would be more in depth
+    for (goap_action_t *it = da_begin(parsedActions), *end = da_end(parsedActions); it != end; ++it){
+        it->actionFunction = uselessActionFunction;
+    }
+
     // shuffle our actions list for an unbiased test
     da_sort(parsedActions, random_comparator);
     puts("Parsed action list:");
     goap_actionlist_dump(parsedActions);
 
     // setup current and goal state
-    goap_worldstate_t currentState = {0}; // everything is false, we have nothing
+    goap_worldstate_t currentState = {0};
     goap_worldstate_t goalState = {0};
-    map_set(&goalState, "BuiltHouse", true);
+    map_set(&currentState, "Awake", false);
+    //map_set(&currentState, "Employed", true);
+
+    map_set(&goalState, "Employed", true);
+    map_set(&goalState, "Happy", true);
+    map_set(&goalState, "Awake", false);
+    map_set(&goalState, "Clean", true);
 
     // generate plan
     goap_actionlist_t plan = goap_planner_plan(currentState, goalState, parsedActions);
     puts("\nPlan:");
     goap_actionlist_dump(plan);
-    fflush(stdout);
 
     // cleanup
+    fflush(stdout);
     da_free(plan);
     map_deinit(&currentState);
     map_deinit(&goalState);

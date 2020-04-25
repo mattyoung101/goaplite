@@ -25,7 +25,7 @@ typedef struct goap_action_t {
     /** a hashmap of changes to the world state that will be set once this action completes */
     map_bool_t postConditions;
     /** code that is executed while the action is running, returns the status */
-    goap_action_status_t (*actionCode)(void);
+    goap_action_status_t (*actionFunction)(void);
 } goap_action_t;
 
 /** A linked list of goap_action_t items */

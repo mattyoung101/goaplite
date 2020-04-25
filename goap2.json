@@ -1,0 +1,93 @@
+{
+  "actions": [
+    {
+      "name": "WakeUp",
+      "cost": 6,
+      "preConditions": {
+        "Awake": false
+      },
+      "postConditions": {
+        "Awake": true,
+        "Hungry": true,
+        "Tired": true
+      }
+    },
+    {
+      "name": "HaveShower",
+      "cost": 1,
+      "preConditions": {
+        "Awake": true
+      },
+      "postConditions": {
+        "Clean": true
+      }
+    },
+    {
+      "name": "MakeFood",
+      "cost": 4,
+      "preConditions": {
+        "Awake": true,
+        "Hungry": true
+      },
+      "postConditions": {
+        "Hungry": false
+      }
+    },
+    {
+      "name": "GoToGym",
+      "cost": 10,
+      "preConditions": {
+        "Awake": true,
+        "Tired": false,
+        "Hungry": false
+      },
+      "postConditions": {
+        "Tired": true,
+        "Hungry": true
+      }
+    },
+    {
+      "name": "MakeCoffee",
+      "cost": 2,
+      "preConditions": {
+        "Awake": true
+      },
+      "postConditions": {
+        "Tired": false
+      }
+    },
+    {
+      "name": "DoWork",
+      "cost": 8,
+      "preConditions": {
+        "Awake": true,
+        "Tired": false
+      },
+      "postConditions": {
+        "Employed": true,
+        "Happy": false
+      }
+    },
+    {
+      "name": "BrowseMemes",
+      "cost": 3,
+      "preConditions": {
+        "Awake": true
+      },
+      "postConditions": {
+        "Happy": true
+      }
+    },
+    {
+      "name": "GoToBed",
+      "cost": 1,
+      "preConditions": {
+        "Awake": true,
+        "Tired": true
+      },
+      "postConditions": {
+        "Awake": false
+      }
+    }
+  ]
+}
