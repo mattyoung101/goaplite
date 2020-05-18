@@ -17,4 +17,4 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 ${SAFETY_FLAGS}")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3 ${PERFORMANCE_FLAGS}") # full optimisation and no safety features
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3 ${PERFORMANCE_FLAGS}")
 
-add_executable(goap main.c goap.c goap.h map.c cJSON.c log/log.c avl.c)
+add_executable(goap main.c goap.c goap.h map.c cJSON.c log/log.c)

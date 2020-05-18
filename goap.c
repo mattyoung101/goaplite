@@ -14,10 +14,8 @@ typedef struct {
     /** total cost of this node so far */
     uint32_t cost;
 } node_t;
+
 DA_TYPEDEF(node_t, nodelist_t)
-DA_TYPEDEF(goap_action_t*, actionlistptr_t)
-/** list of action lists */
-DA_TYPEDEF(goap_actionlist_t, actionlist2_t)
 
 /** returns true if the given action can be executed in the current world state */
 static bool can_perform_action(goap_action_t action, goap_worldstate_t world) {
@@ -28,7 +26,6 @@ static bool can_perform_action(goap_action_t action, goap_worldstate_t world) {
 static void execute_action(goap_action_t action, goap_worldstate_t *world) {
     map_iter_t iter = map_iter();
     const char *key = NULL;
-
     // let's pretend we executed the action, so apply our post-conditions to the backup world
     while ((key = map_next(&action.postConditions, &iter))) {
         bool *postResult = map_get(&action.postConditions, key);
@@ -46,7 +43,7 @@ static bool contains_name(char *name, goap_actionlist_t history) {
     return false;
 }
 
-/** returns the list of actions that can be executed from this node given it's parenets and current state */
+/** returns the list of actions that can be executed from this node given it's parents and current state */
 static goap_actionlist_t find_executable_actions(node_t node, goap_actionlist_t actions) {
     goap_actionlist_t neighbours = {0};
     for (ACTIONLIST_ITER(actions)) {

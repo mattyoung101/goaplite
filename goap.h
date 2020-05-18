@@ -4,6 +4,13 @@
 #include "DG_dynarr.h"
 #include "map.h"
 
+/**
+ * Version history:
+ * v1.0.0: initial version that uses depth first search
+ * v2.0.0: (WIP) version which uses A*
+ */
+#define GOAP_VERSION "1.0.0"
+
 typedef map_t(bool) map_bool_t;
 /** Used to define the current state of a GOAP world */
 typedef map_bool_t goap_worldstate_t;
