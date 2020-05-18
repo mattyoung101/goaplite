@@ -1,23 +1,32 @@
-# GOAP library
-by Matt Young.
+# GOAPLite
+by Matt Young, 2020.
 
-This is my implementation of goal oriented action planning (GOAP), an simplified STRIPS-like planner but significantly
-more advanced than our current AI techniques (we currently use FSMs). It's written in C11 and designed with minimal overhead,
-simplicity and future-proofing in mind.
+This is my implementation of [Goal Oriented Action Planning](http://alumni.media.mit.edu/~jorkin/goap.html) (GOAP), 
+a simplified STRIPS-like planning algorithm commonly use in games. 
+GOAP allows agents to intelligently make long-term decisions based on only a description of the actions they can perform, 
+and a set of boolean variables describing their environment.
 
-Inspiration from this: https://github.com/cpowell/cppGOAP
+GOAPLite has been specifically designed for use in embedded systems, specifically our 
+[RoboCup Jr Open Soccer robotics team](https://github.com/TeamOmicron).
+With that in mind, it's written in pure C11 and designed with minimal overhead, simplicity and future-proofing in mind.
 
-## Requirements
-- Uses minimal resources, including for dependencies, since this is running on the ESP32
-- Easy to declare GOAP action lists, in whatever way this is most feasible (including potentially external data)
-- Easy to execute GOAP plans (just like how it's easy to execute FSM plans currently)
+Currently, the planner uses a simple and inefficient depth first search algorithm. In future it will be rewritten to use
+A* or one of its variants.
+
+Partially inspired by this library: https://github.com/cpowell/cppGOAP
 
 ## Dependencies
-- linked list for storing list of actions/world states: DG_dynarr.h
-- hashmap with string keys: map.c/map.h from rxi
-- JSON parser for loading GOAP config from disk: cJSON
-- AVL tree for implementing Dijkstra's algorithm
-- TODO: in future, rewrite all our dependencies ourselves to save external libraries (maybe except JSON parsing)
+All dependencies are bundled with the repository, unfortunately there are a few. 
+
+- [CJSON](https://github.com/DaveGamble/cJSON) to parse action description JSON documents. Can be removed if you have another way to declare these.
+- [rxi's map](https://github.com/rxi/map) to store world state. Essential.
+- [DG_dynarr](https://github.com/DanielGibson/Snippets/blob/master/DG_dynarr.h) for linked list implementation. Essential.
+
+## Compiling and running
+TODO
+
+### Integrating in your own project
+TODO
 
 ## API design
 ### FIXME outdated
@@ -53,6 +62,12 @@ Just a linked list of `goap_action_t` pointers.
 - `goap_planner_t *goap_planner_new()`
 - `goap_planner_free()`
 - `goap_actionlist_t goap_planner_plan()` (what if no plan can be generated??)
+
+## GOAP resources
+- the docs folder in this repo
+- https://gamedevelopment.tutsplus.com/tutorials/goal-oriented-action-planning-for-a-smarter-ai--cms-20793
+- http://alumni.media.mit.edu/~jorkin/goap.html
+- https://en.wikipedia.org/wiki/Stanford_Research_Institute_Problem_Solver
 
 ## Workflow on robot
 - Set goal state in setup
