@@ -19,7 +19,8 @@ such as Protocol Buffers or a custom format could easily be added.
 Partially inspired by this library: https://github.com/cpowell/cppGOAP
 
 ## Dependencies
-All dependencies are bundled with the repository, unfortunately there are a few. 
+All dependencies are bundled with the repository in the `lib` folder, unfortunately there are some. However, they are all
+MIT licensed (cJSON, map) or public domain (DG_dynarr) so it shouldn't cause any licensing dillemas.
 
 - [CJSON](https://github.com/DaveGamble/cJSON) to parse action description JSON documents. Can be removed if you have another way to declare these.
 - [rxi's map](https://github.com/rxi/map) to store world state. Essential.
