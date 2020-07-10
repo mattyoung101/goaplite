@@ -12,9 +12,12 @@ set (PERFORMANCE_FLAGS "-march=native -mtune=native -msse -msse3")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wno-unused-parameter -g3 -pthread")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CsXX_FLAGS} -Wall -Wextra -Wno-unused-parameter -g3 -pthread")
 
+# set includes
+include_directories(lib)
+
 set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 ${SAFETY_FLAGS}") # safety features and debug optimisation
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 ${SAFETY_FLAGS}")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3 ${PERFORMANCE_FLAGS}") # full optimisation and no safety features
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O3 ${PERFORMANCE_FLAGS}")
 
-add_executable(goap main.c goap.c goap.h map.c cJSON.c log/log.c)
+add_executable(goap main.c goap.c goap.h lib/map.c lib/cJSON.c)

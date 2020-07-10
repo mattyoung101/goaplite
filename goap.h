@@ -10,6 +10,8 @@
  * v2.0.0: (WIP) version which uses A*
  */
 #define GOAP_VERSION "1.0.0"
+/** If true, prints log statements in GOAP code */
+#define GOAP_DEBUG 1
 
 typedef map_t(bool) map_bool_t;
 /** Used to define the current state of a GOAP world */

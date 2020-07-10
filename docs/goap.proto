@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+// Might be used for a future binary format. Currently nothing.
+
 message GOAPAction {
     string name = 1;
     int32 cost = 2;

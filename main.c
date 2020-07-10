@@ -6,7 +6,12 @@
 #include "DG_dynarr.h"
 #undef DG_DYNARR_IMPLEMENTATION
 #include "goap.h"
-#include "log/log.h"
+
+// This file implements a simple test for GOAPLite
+// It loads an action list, in this case, actions_work.json, parses it and then sets up a goal world state and current
+// world state.
+// The planner then finds the optimal solution.
+// The action list is initially shuffled to make double sure the plan is not dependent on order and is legitimate.
 
 static goap_action_status_t uselessActionFunction(){
     printf("Executing useless action function\n");
@@ -41,15 +46,14 @@ static int random_comparator(const void *a, const void *b){
 }
 
 int main() {
-    log_set_level(LOG_TRACE);
     long jsonSize = 0;
-    char *jsonStr = utils_load_file("../goap2.json", &jsonSize);
+    char *jsonStr = utils_load_file("../test_data/actions_work.json", &jsonSize);
     srand(time(NULL));
 
     // load actions from config
     goap_actionlist_t parsedActions = goap_parse_json(jsonStr, jsonSize);
     if (da_count(parsedActions) == 0){
-        log_error("Parse error!");
+        fprintf(stderr, "Parse error!");
         return EXIT_FAILURE;
     }
 

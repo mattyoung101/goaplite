@@ -1,7 +1,6 @@
 #include "goap.h"
 #include <stdio.h>
 #include "cJSON.h"
-#include "log/log.h"
 
 #define ACTIONLIST_ITER(array) goap_action_t *it = da_begin(array), *end = da_end(array); it != end; ++it
 #define NODELIST_ITER(array) node_t *it = da_begin(array), *end = da_end(array); it != end; ++it
@@ -98,12 +97,14 @@ static int cost_comparator(const void *a, const void *b){
 }
 
 goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldstate_t goal, goap_actionlist_t allActions) {
-    log_trace("GOAP planner working with %zu actions", da_count(allActions));
+    printf("GOAP planner working with %zu actions", da_count(allActions));
     goap_actionlist_t plan = {0};
 
     // check if we're already at the goal for some reason
     if (goap_worldstate_compare(currentWorld, goal)) {
-        log_warn("Goal state is already satisfied, no planning required");
+#if GOAP_DEBUG
+        puts("Goal state is already satisfied, no planning required");
+#endif
         return plan;
     }
 
@@ -174,7 +175,9 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
 
     // check for no solutions
     if (da_count(solutions) == 0){
-        log_warn("No solutions found in search!");
+#if GOAP_DEBUG
+        fprintf(stderr, "No solutions found in search!");
+#endif
         da_free(solutions);
         da_free(stack);
         return plan;
@@ -183,7 +186,9 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
     // sort solutions by least cost
     da_sort(solutions, cost_comparator);
     node_t bestSolution = da_get(solutions, 0);
+#if GOAP_DEBUG
     printf("Best solution: cost %u, length %zu:\n", bestSolution.cost, da_count(bestSolution.parents));
+#endif
     goap_actionlist_dump(bestSolution.parents);
 
     // add the solution to the output array
@@ -202,17 +207,20 @@ goap_actionlist_t goap_planner_plan(goap_worldstate_t currentWorld, goap_worldst
 }
 
 goap_actionlist_t goap_parse_json(char *str, size_t length) {
-    log_trace("Using cJSON v%s", cJSON_Version());
     cJSON *json = cJSON_ParseWithLength(str, length);
     goap_actionlist_t out = {0};
     if (json == NULL) {
-        log_error("Failed to parse JSON document: token %s\n", cJSON_GetErrorPtr());
+#if GOAP_DEBUG
+        fprintf(stderr, "Failed to parse JSON document: token %s\n", cJSON_GetErrorPtr());
+#endif
         goto finish;
     }
 
     cJSON *actions = cJSON_GetObjectItem(json, "actions");
     if (!cJSON_IsArray(actions)) {
-        log_error("Invalid JSON document: actions array is not an array, or doesn't exist");
+#if GOAP_DEBUG
+        fprintf(stderr, "Invalid JSON document: actions array is not an array, or doesn't exist");
+#endif
         goto finish;
     }
 
@@ -226,23 +234,33 @@ goap_actionlist_t goap_parse_json(char *str, size_t length) {
 
         // validate our parsed data
         if (!cJSON_IsString(name)) {
-            log_error("Invalid JSON object: action name is not a string or doesn't exist\n%s", dump);
+#if GOAP_DEBUG
+            fprintf(stderr, "Invalid JSON object: action name is not a string or doesn't exist\n%s", dump);
+#endif
             free(dump);
             break;
         } else if (!cJSON_IsNumber(cost)) {
-            log_error("Invalid JSON object: action cost is not a number or doesn't exist\n%s", dump);
+#if GOAP_DEBUG
+            fprintf(stderr, "Invalid JSON object: action cost is not a number or doesn't exist\n%s", dump);
+#endif
             free(dump);
             break;
         } else if (!cJSON_IsObject(preConditions)) {
-            log_error("Invalid JSON object: action preConditions is not an object or doesn't exist\n%s", dump);
+#if GOAP_DEBUG
+            fprintf(stderr, "Invalid JSON object: action preConditions is not an object or doesn't exist\n%s", dump);
+#endif
             free(dump);
             break;
         } else if (!cJSON_IsObject(postConditions)) {
-            log_error("Invalid JSON object: action postConditions is not an object or doesn't exist\n%s", dump);
+#if GOAP_DEBUG
+            fprintf(stderr, "Invalid JSON object: action postConditions is not an object or doesn't exist\n%s", dump);
+#endif
             free(dump);
             break;
         } else {
-            log_trace("Verification passed for config object");
+#if GOAP_DEBUG
+            puts("Verification passed for config object");
+#endif
             free(dump);
         }
         // additional requirements that are not checked here:
